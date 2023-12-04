@@ -10,4 +10,4 @@ while True:
     b64_string = base64.b64encode(res.content).decode('utf-8')
     requests.post(
         url, 
-        json= dict(base64Image=b64_string))
+        json=dict(base64Image=b64_string))
