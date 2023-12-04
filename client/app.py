@@ -12,6 +12,7 @@ app = Flask(__name__)
 # Use environment variables or set defaults
 connection_string = os.getenv('BLOB_STORAGE_CONNECTION_STRING', 'YOUR_DEFAULT_CONNECTION_STRING')
 container_name = os.getenv('BLOB_CONTAINER_NAME', 'YOUR_DEFAULT_CONTAINER_NAME')
+sas_token = os.getenv('BLOB_SAS_TOKEN', '')
 
 blob_service_client = BlobServiceClient.from_connection_string(connection_string)
 
@@ -19,6 +20,10 @@ def list_blobs():
     container_client = blob_service_client.get_container_client(container_name)
     blob_list = container_client.list_blobs()
     return [blob.name for blob in blob_list]
+
+def add_sas_token(blob_name):
+    blob_url = f"https://{blob_service_client.account_name}.blob.core.windows.net/{container_name}/{blob_name}"
+    return blob_url + '?'+ sas_token
 
 @app.route('/')
 def index():
@@ -31,9 +36,12 @@ def index():
     offset = (page - 1) * per_page
     paginated_blobs = blobs[offset : offset + per_page]
 
-    pagination = Pagination(page=page, total=len(blobs), per_page=per_page, record_name='blobs')
+    paginated_blob_page = Pagination(page=page, total=len(blobs), per_page=per_page, record_name='blobs')
 
-    return render_template('index.html', blobs=paginated_blobs, pagination=pagination)
+    # Add SAS token to each image URL
+    paginated_blobs_with_sas = [dict(uri=add_sas_token(blob), blob=blob) for blob in paginated_blobs]
+
+    return render_template('index.html', blobs=paginated_blobs_with_sas, pagination=paginated_blob_page)
 
 if __name__ == '__main__':
     app.run(debug=True)
