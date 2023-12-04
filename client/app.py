@@ -2,6 +2,7 @@ import os
 from flask import Flask, render_template, request
 from azure.storage.blob import BlobServiceClient
 from flask_paginate import Pagination
+import requests
 
 # Load environment variables from .env file
 from dotenv import load_dotenv
@@ -14,6 +15,11 @@ connection_string = os.getenv('BLOB_STORAGE_CONNECTION_STRING', 'YOUR_DEFAULT_CO
 container_name = os.getenv('BLOB_CONTAINER_NAME', 'YOUR_DEFAULT_CONTAINER_NAME')
 sas_token = os.getenv('BLOB_SAS_TOKEN', '')
 
+search_service_endpoint = os.getenv('SEARCH_SERVICE_ENDPOINT', 'YOUR_SEARCH_SERVICE_ENDPOINT')
+search_api_key = os.getenv('SEARCH_API_KEY', 'YOUR_SEARCH_API_KEY')
+index_name = os.getenv('SEARCH_INDEX_NAME', 'YOUR_SEARCH_INDEX_NAME')
+
+
 blob_service_client = BlobServiceClient.from_connection_string(connection_string)
 
 def list_blobs():
@@ -24,6 +30,19 @@ def list_blobs():
 def add_sas_token(blob_name):
     blob_url = f"https://{blob_service_client.account_name}.blob.core.windows.net/{container_name}/{blob_name}"
     return blob_url + '?'+ sas_token
+
+def search_index(query):
+    search_url = f"{search_service_endpoint}/indexes/{index_name}/docs/search"
+    headers = {
+        'Content-Type': 'application/json',
+        'api-key': search_api_key,
+    }
+    payload = {
+        'search': query,
+        'count': 10,  # Adjust as needed
+    }
+    response = requests.post(search_url, json=payload, headers=headers)
+    return response.json()
 
 @app.route('/')
 def index():
@@ -42,6 +61,18 @@ def index():
     paginated_blobs_with_sas = [dict(uri=add_sas_token(blob), blob=blob) for blob in paginated_blobs]
 
     return render_template('index.html', blobs=paginated_blobs_with_sas, pagination=paginated_blob_page)
+
+@app.route('/search')
+def search():
+    query = request.args.get('q', '')
+    results = search_index(query)
+
+    # Your logic to process and display search results
+    # For example, assuming your results contain a 'name' field:
+    search_results = [result['name'] for result in results.get('value', [])]
+
+    return render_template('search.html', query=query, results=search_results)
+
 
 if __name__ == '__main__':
     app.run(debug=True)
