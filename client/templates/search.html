@@ -19,7 +19,7 @@
         <label for="end_date">End Date:</label>
         <input type="date" id="end_date" name="end_date">
 
-        <label for="order_by">Sort by:</label>
+        <label for="order_by">Order by:</label>
         <select id="order_by" name="order_by">
             <option value="asc">Oldest First</option>
             <option value="desc">Latest First</option>
@@ -35,8 +35,8 @@
             <h2>Search Results:</h2>
             <ul>
                 {% for result in search_results %}
-                    <li>{{ result.name }} - {{ result.description }} - {{ result.metadata_storage_last_modified }}</li>
-                    <!-- Display additional information as needed -->
+                    <li>{{result.metadata_storage_last_modified}}</li>
+                    
                 {% endfor %}
             </ul>
         {% else %}
@@ -45,15 +45,15 @@
     </div>
 
     <!-- Pagination controls -->
-    <div class="pagination">
-        {% if page > 1 %}
-            <a href="{{ url_for('search', page=page-1) }}">Previous</a>
-        {% endif %}
+<div class="pagination">
+    {% if page > 1 %}
+        <a href="{{ url_for('search', page=page-1, search_query=search_query, filter=filter, start_date=start_date, end_date=end_date, order_by=order_by) }}">Previous</a>
+    {% endif %}
 
-        Page {{ page }}
+    Page {{ page }}
 
-        {% if search_results|length == RESULTS_PER_PAGE %}
-            <a href="{{ url_for('search', page=page+1) }}">Next</a>
-        {% endif %}
-    </div>
+    {% if search_results|length == 10 %}
+        <a href="{{ url_for('search', page=page+1, search_query=search_query, filter=filter, start_date=start_date, end_date=end_date, order_by=order_by) }}">Next</a>
+    {% endif %}
+</div>
 {% endblock %}

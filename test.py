@@ -16,13 +16,13 @@ url = "http://localhost:7071/api/search"
 start_date = "2023-01-01T00:00:00Z"
 end_date = "2023-12-31T23:59:59Z"
 filter = f"metadata_storage_last_modified ge {start_date} and metadata_storage_last_modified le {end_date}"
-orderBy = "metadata_storage_last_modified desc"
+order_by = "metadata_storage_last_modified desc"
 res = requests.post(
         url, 
         json=dict(
             search="*", 
             filter=filter, 
-            orderBy=orderBy #desc/asc
+            order_by=order_by #desc/asc
             ))
 
 print(res)

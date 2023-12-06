@@ -1,8 +1,10 @@
+import logging
 import os
 from flask import Flask, render_template, request
 from azure.storage.blob import BlobServiceClient
 from flask_paginate import Pagination
 import requests
+from datetime import datetime
 
 # Load environment variables from .env file
 from dotenv import load_dotenv
@@ -90,44 +92,72 @@ def index():
 #         return render_template('search.html', search_results=search_results)
 
 #     return render_template('search.html')
-
+def convert_to_iso(date):
+    if date:
+        return f"{date}T00:00:00Z"  # Assuming start of the day
+    return None
 
 @app.route('/search', methods=['GET', 'POST'])
 def search():
     if request.method == 'POST':
         # Get form inputs
         search_query = request.form.get('search_query')
-        start_date = request.form.get('start_date')
-        end_date = request.form.get('end_date')
-        sort_option = request.form.get('sort')
+        start_date = convert_to_iso(request.form.get('start_date'))
+        end_date = convert_to_iso(request.form.get('end_date'))
+        order_by = request.form.get('order_by')
         page = int(request.args.get('page', 1))  # Get the requested page from the query parameters
 
         # Call the Azure Search API with pagination parameters
-        search_results = search_images(search_query, start_date, end_date, sort_option, page)
+        search_results = search_images(search_query, start_date, end_date, order_by, page)
+
+        # Convert SearchItemPaged to a list for easy handling in the template
+        search_results_list = list(search_results)
+        logging.error(f"list len is: {len(search_results_list)} page is: {page}")
+
+        return render_template('search.html', search_results=search_results_list, page=page,
+                               search_query=search_query, start_date=start_date,
+                               end_date=end_date, order_by=order_by)
+
+    elif request.method == 'GET':
+        # Get pagination parameters from the URL
+        page = int(request.args.get('page', 1))
+        search_query = request.args.get('search_query')
+        filter = request.args.get('filter')
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        order_by = request.args.get('order_by')
+
+        # Call the Azure Search API with pagination parameters
+        search_results = search_images(search_query, start_date, end_date, order_by, page)
 
         # Convert SearchItemPaged to a list for easy handling in the template
         search_results_list = list(search_results)
 
-        return render_template('search.html', search_results=search_results_list, page=page)
+        return render_template('search.html', search_results=search_results_list, page=page,
+                               search_query=search_query, start_date=start_date,
+                               end_date=end_date, order_by=order_by)
 
-    return render_template('search.html', search_results=[], page=1)
+    return render_template('search.html')
 
-def search_images(search_query, start_date, end_date, sort_option, page):
-    
+def search_images(search_query, start_date, end_date, order_by, page):
 
     # Construct your search query based on the parameters
     filter = f"metadata_storage_last_modified ge {start_date} and metadata_storage_last_modified le {end_date}"
-    order_by = f"metadata_storage_last_modified {sort_option}"
+    order_by = f"metadata_storage_last_modified {order_by}"
 
     # Calculate skip value based on the page number and results per page
     
 
-    search_results = requests.post(
+    res = requests.post(
         url=azure_function_url,
         json=dict(search_query=search_query, filter=filter, order_by=order_by, page=page)
     )
 
-    return search_results
+    if res.ok:
+        data = res.json()
+        return data
+    
+    return []
 
 if __name__ == '__main__':
     app.run(debug=True)
