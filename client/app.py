@@ -19,6 +19,10 @@ search_service_endpoint = os.getenv('SEARCH_SERVICE_ENDPOINT', 'YOUR_SEARCH_SERV
 search_api_key = os.getenv('SEARCH_API_KEY', 'YOUR_SEARCH_API_KEY')
 index_name = os.getenv('SEARCH_INDEX_NAME', 'YOUR_SEARCH_INDEX_NAME')
 
+# Azure Function URL
+azure_function_url = os.getenv("AZURE_FUNCTION_URL", "")
+
+
 
 blob_service_client = BlobServiceClient.from_connection_string(connection_string)
 
@@ -62,17 +66,68 @@ def index():
 
     return render_template('index.html', blobs=paginated_blobs_with_sas, pagination=paginated_blob_page)
 
-@app.route('/search')
+
+# @app.route('/search', methods=['GET', 'POST'])
+# def product_search():
+#     if request.method == 'POST':
+#         search_query = request.form.get('search_query')
+#         filters = request.form.getlist('filters')
+#         sort_option = request.form.get('sort_option')
+
+#         # Construct a payload to send to Azure Function
+#         payload = {
+#             'search_query': search_query,
+#             'filters': filters,
+#             'sort_option': sort_option
+#         }
+
+#         # Send request to Azure Function
+#         response = requests.post(azure_function_url, json=payload)
+
+#         # Parse the response
+#         search_results = response.json()
+
+#         return render_template('search.html', search_results=search_results)
+
+#     return render_template('search.html')
+
+
+@app.route('/search', methods=['GET', 'POST'])
 def search():
-    query = request.args.get('q', '')
-    results = search_index(query)
+    if request.method == 'POST':
+        # Get form inputs
+        search_query = request.form.get('search_query')
+        start_date = request.form.get('start_date')
+        end_date = request.form.get('end_date')
+        sort_option = request.form.get('sort')
+        page = int(request.args.get('page', 1))  # Get the requested page from the query parameters
 
-    # Your logic to process and display search results
-    # For example, assuming your results contain a 'name' field:
-    search_results = [result['name'] for result in results.get('value', [])]
+        # Call the Azure Search API with pagination parameters
+        search_results = search_images(search_query, start_date, end_date, sort_option, page)
 
-    return render_template('search.html', query=query, results=search_results)
+        # Convert SearchItemPaged to a list for easy handling in the template
+        search_results_list = list(search_results)
 
+        return render_template('search.html', search_results=search_results_list, page=page)
+
+    return render_template('search.html', search_results=[], page=1)
+
+def search_images(search_query, start_date, end_date, sort_option, page):
+    
+
+    # Construct your search query based on the parameters
+    filter = f"metadata_storage_last_modified ge {start_date} and metadata_storage_last_modified le {end_date}"
+    order_by = f"metadata_storage_last_modified {sort_option}"
+
+    # Calculate skip value based on the page number and results per page
+    
+
+    search_results = requests.post(
+        url=azure_function_url,
+        json=dict(search_query=search_query, filter=filter, order_by=order_by, page=page)
+    )
+
+    return search_results
 
 if __name__ == '__main__':
     app.run(debug=True)
